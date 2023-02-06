@@ -1,6 +1,8 @@
-# `github.com/carterjs/webtools`
+# `webtools`
 
-`webtools` is a collection of utilities for building web front ends with Go
+`github.com/carterjs/webtools`
+
+A collection of utilities for building web front ends with Go.
 
 ## `assets`
 
