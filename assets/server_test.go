@@ -2,6 +2,7 @@ package assets_test
 
 import (
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -20,7 +21,7 @@ func TestServer_ServeHTTP(t *testing.T) {
 	}{
 		"CSS minification": {
 			files: map[string][]byte{
-				"/assets/style.css": []byte(`
+				"/style.css": []byte(`
 					/*
 						This should be shortened!
 					*/
@@ -39,7 +40,7 @@ func TestServer_ServeHTTP(t *testing.T) {
 		},
 		"JS minification": {
 			files: map[string][]byte{
-				"/assets/js/script.js": []byte(`
+				"/js/script.js": []byte(`
 					// some unnecessary comment
 
 
@@ -52,7 +53,7 @@ func TestServer_ServeHTTP(t *testing.T) {
 		},
 		"text without minification": {
 			files: map[string][]byte{
-				"/assets/text.txt": []byte(`Hello, world!`),
+				"/text.txt": []byte(`Hello, world!`),
 			},
 			requestPath:    "/assets/text.txt",
 			expectedStatus: 200,
@@ -60,7 +61,7 @@ func TestServer_ServeHTTP(t *testing.T) {
 		},
 		"file without extension": {
 			files: map[string][]byte{
-				"/assets/test": []byte("test"),
+				"/test": []byte("test"),
 			},
 			requestPath:    "/assets/test",
 			expectedStatus: 200,
@@ -70,7 +71,7 @@ func TestServer_ServeHTTP(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			assets.ServeFile = getFileServer(tc.files)
+			assets.GetFileServer = getFileServerGetter(tc.files)
 
 			server := httptest.NewServer(assets.NewServer("/assets", "some/fake/path"))
 
@@ -108,7 +109,7 @@ func TestServer_GetVersionedPath(t *testing.T) {
 	}{
 		"versioned path returns file": {
 			files: map[string][]byte{
-				"/assets/style.css": []byte(`
+				"/style.css": []byte(`
 					body {
 						background-color: red;
 					}
@@ -123,7 +124,7 @@ func TestServer_GetVersionedPath(t *testing.T) {
 		},
 		"original path still works": {
 			files: map[string][]byte{
-				"/assets/style.css": []byte(`
+				"/style.css": []byte(`
 					body {
 						background-color: red;
 					}
@@ -138,7 +139,7 @@ func TestServer_GetVersionedPath(t *testing.T) {
 		},
 		"file without extension": {
 			files: map[string][]byte{
-				"/assets/test": []byte("test"),
+				"/test": []byte("test"),
 			},
 			serverVersion:         0,
 			inputPath:             "/assets/test",
@@ -151,7 +152,7 @@ func TestServer_GetVersionedPath(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			assets.ServeFile = getFileServer(tc.files)
+			assets.GetFileServer = getFileServerGetter(tc.files)
 			assets.GetVersion = func() int64 {
 				return tc.serverVersion
 			}
@@ -181,14 +182,17 @@ func TestServer_GetVersionedPath(t *testing.T) {
 	}
 }
 
-func getFileServer(files map[string][]byte) func(w http.ResponseWriter, r *http.Request, name string) {
-	return func(w http.ResponseWriter, r *http.Request, name string) {
-		if b, ok := files[r.URL.Path]; ok {
-			w.Write(b)
-			w.WriteHeader(http.StatusOK)
-		} else {
-			// file not found
-			w.WriteHeader(http.StatusNotFound)
-		}
+func getFileServerGetter(files map[string][]byte) func(path string) http.Handler {
+	return func(path string) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			log.Println("Looking for", r.URL.Path)
+			if b, ok := files[r.URL.Path]; ok {
+				w.WriteHeader(http.StatusOK)
+				w.Write(b)
+			} else {
+				// file not found
+				w.WriteHeader(http.StatusNotFound)
+			}
+		})
 	}
 }

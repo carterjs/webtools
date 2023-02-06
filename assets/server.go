@@ -19,17 +19,19 @@ var GetVersion = func() int64 {
 	return time.Now().Unix()
 }
 
-var ServeFile = http.ServeFile
+var GetFileServer = func(path string) http.Handler {
+	return http.FileServer(http.Dir(path))
+}
 
 type Server struct {
 	minifier   *minify.M
 	prefix     string
-	version    int64
 	fileServer http.Handler
+	version    int64
 	aliases    map[string]string
 }
 
-func NewServer(prefix string, path string) *Server {
+func NewServer(prefix, path string) *Server {
 	minifier := minify.New()
 	minifier.AddFunc("text/css", css.Minify)
 	minifier.AddFunc("image/svg+xml", svg.Minify)
@@ -38,8 +40,8 @@ func NewServer(prefix string, path string) *Server {
 	return &Server{
 		minifier:   minifier,
 		prefix:     prefix,
+		fileServer: http.StripPrefix(prefix, GetFileServer(path)),
 		version:    GetVersion(),
-		fileServer: http.StripPrefix(prefix, http.FileServer(http.Dir(path))),
 		aliases:    make(map[string]string),
 	}
 }
@@ -70,5 +72,5 @@ func (server *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w = mw
 	}
 
-	ServeFile(w, r, r.URL.Path)
+	server.fileServer.ServeHTTP(w, r)
 }
