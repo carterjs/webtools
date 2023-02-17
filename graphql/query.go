@@ -8,7 +8,7 @@ import (
 )
 
 // Query makes a GraphQL request and parses the response into a type
-func Query[T any](url string, q string, variables map[string]any) (*T, error) {
+func Query[T any](url string, q string, variables map[string]any, modifiers ...RequestModifier) (*T, error) {
 	bodyBytes, err := json.Marshal(map[string]any{
 		"query":     q,
 		"variables": variables,
@@ -23,6 +23,11 @@ func Query[T any](url string, q string, variables map[string]any) (*T, error) {
 	}
 
 	req.Header.Add("Content-Type", "application/json")
+
+	// Modifiers
+	for _, modifier := range modifiers {
+		modifier(req)
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -44,4 +49,14 @@ func Query[T any](url string, q string, variables map[string]any) (*T, error) {
 	}
 
 	return responseBody.Data, nil
+}
+
+type RequestModifier func(req *http.Request)
+
+func WithHeaders(data map[string]string) RequestModifier {
+	return func(req *http.Request) {
+		for key, value := range data {
+			req.Header.Set(key, value)
+		}
+	}
 }

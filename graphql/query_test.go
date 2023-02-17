@@ -65,6 +65,23 @@ func TestQuery(t *testing.T) {
 	}
 }
 
+func TestWithHeaders(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
+
+	graphql.WithHeaders(map[string]string{
+		"FOO": "foo",
+		"BAR": "bar",
+	})(req)
+
+	if v := req.Header.Get("FOO"); v != "foo" {
+		t.Fatalf("expected 'foo', found '%s'", v)
+	}
+
+	if v := req.Header.Get("BAR"); v != "bar" {
+		t.Fatalf("expected 'bar', found '%s'", v)
+	}
+}
+
 func getServer(value any) *httptest.Server {
 	type response struct {
 		Data any `json:"data"`
